@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Temp Mail Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: rgba(255,255,255,0.1);
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 600px;
+      box-shadow: 0px 8px 20px rgba(0,0,0,0.3);
+    }
+    h1 {
+      margin-bottom: 15px;
+    }
+    button {
+      margin: 10px;
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #ff9800;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #e68900;
+    }
+    select {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .inbox {
+      margin-top: 20px;
+      text-align: left;
+      max-height: 250px;
+      overflow-y: auto;
+      background: rgba(255,255,255,0.1);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .message {
+      background: rgba(255,255,255,0.2);
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .copy-btn {
+      margin-top: 10px;
+      background: #4caf50;
+    }
+    .copy-btn:hover {
+      background: #3d8b40;
+    }
+    footer {
+      margin-top: 20px;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      padding-top: 60px;
+    }
+    .modal-content {
+      background: #fff;
+      color: #000;
+      margin: auto;
+      padding: 20px;
+      border-radius: 12px;
+      width: 80%;
+      max-width: 600px;
+      box-shadow: 0px 8px 20px rgba(0,0,0,0.3);
+      animation: fadeIn 0.3s;
+    }
+    .close {
+      float: right;
+      font-size: 22px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close:hover { color: red; }
+    .msg-body {
+      margin-top: 15px;
+      background: #f1f1f1;
+      padding: 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+    @keyframes fadeIn {
+      from {opacity: 0; transform: scale(0.9);}
+      to {opacity: 1; transform: scale(1);}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Temp Mail Generator</h1>
+    <p>Forget about spam, ads & hackers. Keep your real inbox clean and secure.</p>
+    
+    <button onclick="generateEmail()">Generate New Email</button>
+    
+    <div style="margin-top: 15px;">
+      <label for="emailSelect"><b>Choose an email:</b></label><br>
+      <select id="emailSelect" onchange="updateSelectedEmail()">
+        <option value="">-- No email yet --</option>
+      </select>
+      <button class="copy-btn" onclick="copyEmail()">Copy</button>
+      <button onclick="refreshInbox()">Refresh Inbox</button>
+    </div>
+
+    <div id="inbox" class="inbox"></div>
+
+    <!-- Modal for message -->
+    <div id="messageModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3 id="msgSubject"></h3>
+        <p><b>From:</b> <span id="msgFrom"></span></p>
+        <div id="msgBody" class="msg-body"></div>
+      </div>
+    </div>
+
+    <footer>
+      Made with ❤️ for safe browsing <br>
+      © 2025 Triple Mail
+    </footer>
+  </div>
+
+  <script>
+    let accounts = {};   // {email: {password, token}}
+    let currentEmail = null;
+
+    function generateEmail() {
+      fetch('/generate')
+        .then(res => res.json())
+        .then(data => {
+          if (data.email) {
+            accounts[data.email] = data;
+            currentEmail = data.email;
+
+            let select = document.getElementById("emailSelect");
+            let option = document.createElement("option");
+            option.value = data.email;
+            option.text = data.email;
+            select.add(option);
+            select.value = data.email;
+          } else {
+            alert("Error: " + data.error);
+          }
+        });
+    }
+
+    function updateSelectedEmail() {
+      let select = document.getElementById("emailSelect");
+      currentEmail = select.value;
+    }
+
+    function copyEmail() {
+      if (!currentEmail) {
+        alert("No email selected!");
+        return;
+      }
+      navigator.clipboard.writeText(currentEmail).then(() => {
+        alert("Copied: " + currentEmail);
+      });
+    }
+
+    function refreshInbox() {
+      if (!currentEmail) {
+        alert("Please select an email first!");
+        return;
+      }
+      fetch('/inbox', {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({email: currentEmail})
+      })
+      .then(res => res.json())
+      .then(data => {
+        const inboxDiv = document.getElementById("inbox");
+        inboxDiv.innerHTML = "";
+        if (data["hydra:totalItems"] === 0) {
+          inboxDiv.innerHTML = "<p>No messages yet 📭</p>";
+        } else {
+          data["hydra:member"].forEach(msg => {
+            const div = document.createElement("div");
+            div.className = "message";
+            div.innerHTML = `
+              <b>From:</b> ${msg.from.address} <br>
+              <b>Subject:</b> ${msg.subject} <br>
+              <button onclick="viewMessage('${msg.id}')">View</button>
+            `;
+            inboxDiv.appendChild(div);
+          });
+        }
+      });
+    }
+
+    function viewMessage(id) {
+      fetch('/message/' + id, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({email: currentEmail})
+      })
+      .then(res => res.json())
+      .then(msg => {
+        document.getElementById("msgSubject").innerText = msg.subject;
+        document.getElementById("msgFrom").innerText = msg.from.address;
+        document.getElementById("msgBody").innerText = msg.text || "(No content)";
+        document.getElementById("messageModal").style.display = "block";
+      });
+    }
+
+    function closeModal() {
+      document.getElementById("messageModal").style.display = "none";
+    }
+
+    window.onclick = function(event) {
+      const modal = document.getElementById("messageModal");
+      if (event.target === modal) {
+        modal.style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>
